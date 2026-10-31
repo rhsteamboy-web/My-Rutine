@@ -1,3 +1,4 @@
+
 name: Build My Routine APK
 
 on:
@@ -25,7 +26,7 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Install Android SDK packages
+      - name: Install Android SDK
         run: |
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses || true
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
@@ -40,6 +41,37 @@ jobs:
 
       - name: Extract project
         run: unzip -o MyRoutineAndroid_CloudBuild.zip -d .
+
+      - name: Fix Java and Kotlin version
+        working-directory: MyRoutineAndroid
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p = Path("app/build.gradle.kts")
+          s = p.read_text()
+
+          marker = "    buildFeatures { compose = true }"
+
+          replacement = """    buildFeatures { compose = true }
+
+              compileOptions {
+                  sourceCompatibility = JavaVersion.VERSION_17
+                  targetCompatibility = JavaVersion.VERSION_17
+              }
+
+              kotlinOptions {
+                  jvmTarget = "17"
+              }"""
+
+          if "jvmTarget = \"17\"" not in s:
+              if marker not in s:
+                  raise SystemExit("Could not find buildFeatures marker")
+              s = s.replace(marker, replacement, 1)
+
+          p.write_text(s)
+          print("Java and Kotlin targets set to 17")
+          PY
 
       - name: Build APK
         working-directory: MyRoutineAndroid
